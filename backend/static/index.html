@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Sockets</title>
+    <link rel="stylesheet" href="/style.css">
+	<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <script src="https://unpkg.com/vue-simple-notify/dist/vue-simple-notify.min.js"></script>
+    <link href="https://unpkg.com/vue-simple-notify/dist/vue-simple-notify.min.css" rel="stylesheet">
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+	<main id="app">
+        <section class="alerts">
+            <alerts-component :items="alerts"></alerts-component>
+        </section>
+		<h1>Websockets Tester</h1>
+        <form>
+            <input v-model="text" type="text" />
+            <button type="submit" @click.prevent="sendChatMessage">Send</button>
+        </form>
+        <p>
+            <ul>
+                <li v-for="msg of messages">
+                    <strong>{{ msg.sender }}:</strong> {{ msg.message }}
+                </li>
+            </ul>
+        </p>
+	</main>
+
+	<script>
+        Vue.component('alerts-component', VueSimpleNotify.VueSimpleNotify);
+		var app = new Vue({
+			el: "#app",
+			data: {
+                username: '',
+                text: '',
+                messages: [],
+                alerts: [],
+                socket: { chat: null, alerts: null},
+			},
+            methods: {
+                sendChatMessage(){
+                    this.socket.chat.emit('chatToServer', { sender: this.username, message: this.text })
+                    this.text = "";
+                },
+                reciveChatMessage(msg) {
+                    this.messages.push(msg);
+                },
+                reciveAlertMessage(msg) {
+                    this.alerts.push(msg)
+                }
+            },
+            created() {
+                this.username = prompt('Enter your username: ')
+
+                this.socket.chat = io('http://localhost:3000/chat');
+                this.socket.chat.on('chatToClient', (msg) => {
+                    this.reciveChatMessage(msg)
+                });
+
+                this.socket.alerts = io('http://localhost:3000/alerts');
+                this.socket.alerts.on('alertToClient', (msg) => {
+                    this.reciveAlertMessage(msg)
+                });
+            }
+		})
+	</script>
+</body>
+</html>
