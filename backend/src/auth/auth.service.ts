@@ -1,7 +1,6 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
-import { use } from 'passport';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { SignUpDto, SignInDto } from './dto';
 import { hashData, verifyData } from './handlers';
@@ -22,12 +21,12 @@ export class AuthService {
         const user = await this.prisma.user.create({
             data: {
                 nick,
-                password: hashedPassword
+                password: hashedPassword,
             }
         }).catch((err) => {
             if (err instanceof PrismaClientKnownRequestError) {
                 if (err.code === 'P2002') {
-                  throw new ForbiddenException('User with given nickname already exists');
+                  throw new ConflictException('User with given nickname already exists');
                 }
               }
             throw err;
@@ -46,7 +45,7 @@ export class AuthService {
         })
         if (!user) throw new ForbiddenException('Access Denied')
         const passwordMatches: boolean = await verifyData(user.password, password)
-        if (!passwordMatches) throw new ForbiddenException('Access Denied')
+        if (!passwordMatches) throw new ForbiddenException('Invaild credentials')
 
         const tokens = await this.generateTokens(user.id, user.nick)
         await this.updateRefreshToken(user.id, tokens.refresh_token)
@@ -87,7 +86,7 @@ export class AuthService {
                 nick
             }, {
                 secret: process.env.AT_SECRET,
-                expiresIn: 60 * 15
+                expiresIn: 60 * 60
             }),
             this.jwtService.signAsync({
                 sub: userId,
