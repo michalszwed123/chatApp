@@ -31,6 +31,7 @@ export class AuthService {
               }
             throw err;
         });
+        
         const tokens = await this.generateTokens(user.id, nick)
         await this.updateRefreshToken(user.id, tokens.refresh_token)
         return tokens

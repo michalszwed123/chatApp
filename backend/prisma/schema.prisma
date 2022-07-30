@@ -16,7 +16,15 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  rooms     Room[]
+  // Relation 1-n  User can own many rooms
+  rooms     Room[] @relation("creator")
+
+  
+  // Relation n0n Many user can join many rooms
+  joinedRoomIds   String[] @db.ObjectId 
+  joinedRooms Room[] @relation(fields: [joinedRoomIds], references: [id])
+
+
 
   @@map("users")
 }
@@ -27,10 +35,16 @@ model Room {
   tag       String  @unique
   isPublic  Boolean @default(false)
 
-  creator   User    @relation(fields: [creatorId], references: [id])
+
+  // Relation 1-n  User can own many rooms
+  creator   User    @relation("creator", fields: [creatorId], references: [id])
   creatorId String  @db.ObjectId
 
 
+  
+  // Relation n0n Many user can join many rooms
+  joinedUserIds String[] @db.ObjectId 
+  joinedUsers User[] @relation(fields: [joinedUserIds], references: [id])
 
   @@map("rooms")
 }
