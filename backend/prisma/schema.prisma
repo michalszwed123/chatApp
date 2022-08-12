@@ -7,6 +7,8 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+
+
 model User {
   id        String  @id @default(auto()) @map("_id") @db.ObjectId
   nick      String  @unique
@@ -16,6 +18,9 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+
+  // messages Message[] @relation("sender")
+  
   // Relation 1-n  User can own many rooms
   rooms     Room[] @relation("creator")
 
@@ -29,6 +34,21 @@ model User {
   @@map("users")
 }
  
+model Message {
+  id        String  @id @default(auto()) @map("_id") @db.ObjectId
+  // sender    User    @relation("sender", fields: [senderId], references: [id])
+  // senderId  String  @db.ObjectId
+
+  sender    String
+  message   String
+  room      String
+
+  createdAt DateTime @default(now())
+
+  @@map("messages")
+}
+
+
 model Room {
   id        String  @id @default(auto()) @map("_id") @db.ObjectId
   name      String  @unique

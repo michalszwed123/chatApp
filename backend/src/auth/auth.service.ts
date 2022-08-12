@@ -14,6 +14,7 @@ export class AuthService {
         private readonly prisma: PrismaService,
     ) {}
 
+
     async singUp(dto: SignUpDto): Promise<Tokens> {
         const { nick, password } = dto;
         const hashedPassword = await hashData(password)
@@ -39,6 +40,7 @@ export class AuthService {
 
     async signIn(dto: SignInDto) {
         const { nick, password } = dto;
+        
         const user = await this.prisma.user.findUnique({
             where: {
                 nick
@@ -98,5 +100,11 @@ export class AuthService {
             })
         ])
         return { access_token: at, refresh_token: rt }
+    }
+
+    verifyJwt(jwt: string): Promise<any> {
+        return this.jwtService.verifyAsync(jwt, {
+            secret: process.env.AT_SECRET
+        })
     }
 }

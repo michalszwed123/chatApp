@@ -3,55 +3,238 @@
 <head>
 	<title>Sockets</title>
     <link rel="stylesheet" href="/style.css">
+    <script src="https://cdn.socket.io/4.3.2/socket.io.min.js" integrity="sha384-KAZ4DtjNhLChOB/hxXuKqhMLYvx3b5MlT55xPEiNmREKRzeEm+RVPlTnAn0ajQNs" crossorigin="anonymous"></script>
 	<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
-    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://unpkg.com/vue-cookies@1.5.12/vue-cookies.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
 </head>
 <body>
 	<main id="app">
-		<h1>Websockets Tester</h1>
-        <form>
-            <input v-model="text" type="text" />
-            <button type="submit" @click.prevent="sendChatMessage">Send</button>
-        </form>
-        <p>
-            <ul>
-                <li v-for="msg of messages">
-                    <strong>{{ msg.sender }}:</strong> {{ msg.message }}
-                </li>
-            </ul>
-        </p>
+
+        <div>
+            <p class="menu" v-if="connected">
+                <font color="green">Connected</font>
+                &nbsp;&nbsp;&nbsp;[<b>{{ this.login.name }}</b>]&nbsp;&nbsp;&nbsp;
+                <button type="submit" @click.prevent="disconnectSocket">Disconnect</button>
+            </p>
+    
+            <div class="menu">
+                <form v-if="!connected">
+                    <input v-model="login.name" type="text" placeholder="Name" /><br>
+                    <input v-model="login.password" type="password" placeholder="Password" /><br>
+                    <button type="submit" @click.prevent="getToken">Connect</button>
+                </form>
+            </div>   
+           
+            
+            
+
+            <div  v-if="connected">
+
+                <div class="chatList">
+                    <div class="boxName"><b>Online: {{this.total}} </b></div>
+                    <ul >
+                        <li v-for="user of connectedUsers">
+                            <span v-if="user.isTyping">
+                                &nbsp;<em>{{ user.name }} &#9997;</em>
+                            </span> 
+
+                            <span v-else>
+                                {{ user.name }}
+                            </span>
+                        </li>
+                    </ul>
+                </div>
+
+
+                <div class="chatbox">
+                    <div class="boxName"><b>Shared Chat</b></div>
+                    <div class="chatMessages">
+                        <ul >
+                            <li v-for="msg of messages">
+                                <strong>{{ msg.sender }}:</strong> {{ msg.message }}
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="chatInput">
+                        <form>
+                            <input v-model="text" type="text" @input="typing" />
+                            <button type="submit" @click.prevent="sendChatMessage">Send</button>
+                        </form>
+                    </div>
+                </div>
+               
+
+                <div class="privateMessages">
+                    <div class="boxName"><b>Private Messages</b></div>
+                </div>
+
+
+            </div>
+
+
+
+
+        </div>        
+    
 	</main>
 
 	<script>
 		var app = new Vue({
 			el: "#app",
 			data: {
-                username: '',
+                login: {
+                    name: '',
+                    password: ''
+                },
+                user: {
+                    id: '',
+                    nick: ''
+                },
+                connected: false,
+                info: [],
                 text: '',
                 messages: [],
-                socket: { chat: null, alerts: null},
+                socket: null,
+                token: '',
+                total: 0,
+                connectedUsers: []
 			},
             methods: {
-                sendChatMessage(){
-                    this.socket.chat.emit('chatToServer', { sender: this.username, message: this.text })
-                    this.text = "";
+                joined(data) {
+                  this.total = data.total
+                  if(data.name !== this.login.name) {
+                    this.connectedUsers.push({name: data.name, isTyping: false})  
+                  }
+                  
                 },
+                quit(data){
+                  this.total = data.total
+                  this.connectedUsers = this.connectedUsers.filter(e => e.name !== data.name)
+                },
+                userTyping(data) {
+                   const name = data.name
+                   const index = this.connectedUsers.findIndex(e => e.name === name)
+                   this.connectedUsers[index].isTyping = true
+                   setTimeout(() => {
+                    this.connectedUsers[index].isTyping = false
+                   }, 2000)
+                },
+                getToken() {
+                    if(this.login.name && this.login.password) {
+                        const payload = { 
+                        nick: this.login.name,
+                        password: this.login.password
+                        }   
+                    
+                        axios.post('http://localhost:4444/api/auth/signin', payload).then(response => {
+                            this.token = response.data.access_token
+                            this.connectSocket()
+                        })      
+                    }
+                            
+                },
+                typing() {
+                    this.socket.send(JSON.stringify({event: 'typing', data: {}}))
+                },
+                identity() {
+                    this.socket.send(JSON.stringify({event: 'identity', data: {}}))
+                },
+                getClients() {
+                    this.socket.send(JSON.stringify({event: 'getClients', data: {}}))
+                },
+                getMessages() {
+                    this.socket.send(JSON.stringify({event: 'getMessages', data: {}}))
+                },
+                disconnectSocket() {
+                    if(this.connected) {
+                        this.socket.close()
+                        this.connectedUsers = []
+                    }
+                },
+                connectSocket() {
+                    if(this.token && this.login.name && this.login.password) {
+                        
+                        this.socket = new WebSocket('ws://localhost:4444', `${this.token}`)
+
+                        this.socket.addEventListener('close', () => {
+                            this.connected = false
+                            this.messages = []
+                            this.user.id = '',
+                            this.user.nick = ''
+                        })
+        
+                        this.socket.addEventListener('open', () => {
+                            this.connected = true
+                        })
+    
+                        //setTimeout(this.identity, 300)
+                        setTimeout(this.getClients, 300)
+                        setTimeout(this.getMessages, 300)
+
+                        this.socket.addEventListener('message', res => {
+                        var response = JSON.parse(res.data)
+                        var event = response.event
+                        var data = response.data
+                            
+                        switch(event) {
+                            case 'typing':
+                                this.userTyping(data)
+                                break;
+                            case 'quit':
+                                this.quit(data)
+                                break;
+                            case 'joined':
+                                this.joined(data)
+                                break
+                            case 'chatToClient':
+                                this.reciveChatMessage(data)
+                                break;
+                            case 'identity':
+                                this.user.id = data.sub
+                                this.user.nick = data.nick
+                                break;
+                            case 'getClients':
+                                var clients = data.clients.map((e) => ({
+                                    name: e,
+                                    isTyping: false
+                                }))
+                                this.connectedUsers = clients
+                                this.total = data.total
+                                break;
+                            case 'getMessages':
+                                this.messages = data
+                                break;
+                            
+                        }    
+                    })
+                  }
+                },
+
+                sendChatMessage(){
+                   if(this.text) {
+                    this.socket.send(JSON.stringify({
+                        event: 'chatToServer',
+                        data: {
+                            'message': this.text,
+                            'room': null
+                        }
+                    }))
+                    this.text = "";
+                   }
+                },
+
                 reciveChatMessage(msg) {
                     this.messages.push(msg);
                 },
-                reciveAlertMessage(msg) {
-                    this.alerts.push(msg)
-                }
+
+             
             },
             created() {
-                this.username = prompt('Enter your username: ')
+                // Set auth coockie
+               // $cookies.set('X-Authorization', `${this.token};patch=/`)
 
-                this.socket.chat = io('http://localhost:4444/chat');
-                this.socket.chat.on('chatToClient', (msg) => {
-                    this.reciveChatMessage(msg)
-                });
-
-
+    
             }
 		})
 	</script>

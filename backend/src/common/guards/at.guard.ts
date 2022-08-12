@@ -6,12 +6,12 @@ export class AtGuard extends AuthGuard('jwt') {
         super();
     }
 
-    handleRequest(err, user) {
+    // handleRequest(err, user) {
       
-        if (err || !user) {
-          throw err || new UnauthorizedException();
-        }
-        return user;
-      }
+    //     if (err || !user) {
+    //       throw err || new UnauthorizedException();
+    //     }
+    //     return user;
+    //   }
 
 }
